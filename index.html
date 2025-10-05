@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Calculator & Converter</title>
+  <!-- Load Font Awesome for Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    /* Base Styles (Mobile First) */
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      background: #f4f4f4;
+      transition: background 0.3s;
+      user-select: none;
+    }
+
+    .calculator {
+      background: #fff;
+      padding: 16px;
+      border-radius: 16px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+      width: 100%;
+      max-width: 380px;
+      transition: background 0.3s;
+    }
+    
+    .mode-header {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-bottom: 16px;
+    }
+    
+    .mode-toggle-btn {
+        padding: 10px;
+        font-size: 1rem;
+        font-weight: 600;
+        border: none;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: 0.2s;
+    }
+    
+    .calc-mode {
+        background: #3498db; /* Blue */
+        color: #fff;
+    }
+    .conv-mode {
+        background: #2ecc71; /* Green */
+        color: #fff;
+    }
+    .active-mode {
+        box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3);
+        opacity: 0.8;
+    }
+
+    .display, .conversion-display {
+      background: #111;
+      color: #fff;
+      font-size: 2.2rem;
+      padding: 15px;
+      border-radius: 12px;
+      text-align: right;
+      margin-bottom: 16px;
+      min-height: 60px;
+      overflow-x: auto;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+    }
+    .conversion-display.output {
+        background: #34495e !important;
+        font-size: 1.8rem;
+    }
+
+    /* Conversion UI Specifics */
+    .conversion-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #ddd;
+    }
+
+    .conversion-controls select {
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      background: #fff;
+      font-size: 1rem;
+      color: #333;
+      appearance: none; /* Remove default styling */
+    }
+    
+    .unit-selectors {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        gap: 8px;
+        align-items: center;
+    }
+    
+    .unit-selectors i {
+        font-size: 1.2rem;
+        color: #f19a32;
+        text-align: center;
+    }
+
+    .keys {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+    /* Removed span-2 CSS */
+
+    button {
+      padding: 18px 10px;
+      font-size: 1.2rem;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      background: #f0f0f0;
+      color: #333;
+      transition: 0.2s;
+      box-shadow: 0 3px 0 #d9d9d9;
+      font-weight: 500;
+    }
+
+    button:hover { opacity: 0.9; }
+    button:active { transform: translateY(1px); box-shadow: 0 2px 0 #d9d9d9; }
+
+    /* Operation/Utility buttons */
+    .op {
+      background: #f39c12; /* Sun Orange */
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .equal {
+      background: #e74c3c; /* Red/Coral for Equal */
+      color: #fff;
+      box-shadow: 0 3px 0 #c0392b;
+      font-weight: 700;
+    }
+
+    .clear-btn {
+      background: #34495e; /* Dark Blue for C/AC */
+      color: #fff;
+    }
+    
+    .utility-btn {
+        background: #7f8c8d; /* Gray for utilities like Backspace, Theme, Mode */
+        color: #fff;
+    }
+    
+    /* Full-width history button is back */
+    .history-btn {
+      grid-column: span 4; 
+      background: #9b59b6; /* Purple for History */
+      color: #fff;
+      font-size: 1.1rem;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-top: 12px;
+      padding: 12px;
+    }
+
+    /* History Panel Styling */
+    .history-panel {
+      background: #ecf0f1;
+      border-radius: 12px;
+      padding: 15px;
+      max-height: 200px;
+      overflow-y: auto;
+      margin-top: 16px;
+      box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.1);
+      transition: background 0.3s;
+      border: 1px solid #ddd;
+    }
+
+    .history-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      border-bottom: 2px solid #bdc3c7;
+      padding-bottom: 5px;
+    }
+
+    .history-header h3 {
+      margin: 0;
+      font-size: 1.1rem;
+      color: #34495e;
+    }
+
+    .history-item {
+      font-size: 0.9rem;
+      padding: 5px 0;
+      color: #2c3e50;
+      border-bottom: 1px dashed #ccc;
+      word-break: break-all;
+    }
+
+    .history-item:last-child {
+      border-bottom: none;
+    }
+
+    .clear-history-btn {
+      background: #c0392b;
+      color: #fff;
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 0.9rem;
+      width: 100%;
+      margin-top: 10px;
+      box-shadow: 0 2px 0 #a9322b;
+    }
+
+    /* Glow Effect */
+    .glow {
+      animation: glow 0.3s ease;
+    }
+
+    @keyframes glow {
+      from { box-shadow: 0 0 15px rgba(52, 152, 219, 0.7); }
+      to { box-shadow: 0 3px 0 #d9d9d9; }
+    }
+
+
+    /* --- Dark Theme Styles --- */
+    body.dark { background: #1c1c1c; }
+    body.dark .calculator { background: #2b2b2b; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5); }
+    body.dark .display, body.dark .conversion-display { background: #111; color: #eee; }
+    
+    body.dark .mode-toggle-btn { opacity: 0.9; }
+    body.dark .active-mode { box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.2); }
+
+    body.dark .history-panel { background: #333; border-color: #444; }
+    body.dark .history-header { border-bottom-color: #555; }
+    body.dark .history-header h3 { color: #ccc; }
+    body.dark .history-item { color: #ddd; border-bottom: 1px dashed #555; }
+    
+    body.dark button { background: #444; color: #ddd; box-shadow: 0 3px 0 #333; }
+    body.dark button:active { box-shadow: 0 2px 0 #333; }
+    body.dark .clear-btn { background: #2c3e50; }
+    body.dark .utility-btn { background: #555; }
+    body.dark .op { background: #d35400; }
+    body.dark .equal { background: #c0392b; box-shadow: 0 3px 0 #a9322b; }
+    body.dark .history-btn { background: #8e44ad; }
+    body.dark .clear-history-btn { background: #a93226; box-shadow: 0 2px 0 #94291e; }
+    
+    body.dark .conversion-controls select { background: #555; color: #ddd; border-color: #444; }
+    body.dark .conversion-controls { border-color: #444; }
+    
+    body.dark .conversion-display.output {
+        background: #2c3e50 !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="calculator">
+    
+    <!-- This is the container for the dynamic content (display/controls) -->
+    <div id="appContainer">
+        <!-- Content populated by JS on load -->
+    </div>
+
+    <!-- The keys remain constant, but their click handlers change based on mode -->
+    <div class="keys" id="keypad">
+      <!-- Keypad content generated by JS -->
+    </div>
+
+    <div class="history-panel" id="historyPanel" style="display: none;">
+      <div class="history-header">
+        <h3>Calculation History</h3>
+      </div>
+      <div id="history"></div>
+      <button class="clear-history-btn" onclick="clearHistory()">
+        <i class="fas fa-trash"></i> Clear History
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // --- Global State and Constants ---
+    
+    // API key for Google Search grounding tool (leave blank)
+    const API_KEY = ""; 
+    const GEMINI_API_URL = https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${API_KEY};
+    
+    // DOM elements
+    let appContainer = document.getElementById("appContainer");
+    let keypad = document.getElementById("keypad");
+    let historyDiv = document.getElementById("history");
+    let historyPanel = document.getElementById("historyPanel");
+    
+    // Modes and state
+    let currentMode = 'CALC'; // 'CALC' or 'CONV'
+    let calcMode = 'NORMAL'; // 'NORMAL' or 'ADVANCED'
+    let isHistoryVisible = false; // Tracks if history panel is open
+    const THEME_KEY = 'calculatorTheme';
+    
+    // Conversion State
+    let convState = {
+        category: 'length',
+        from: 'meters',
+        to: 'kilometers',
+        value: '0',
+        rates: { USD: 1, EUR: 0.92, GBP: 0.80, JPY: 156.0, CAD: 1.36 }, // Default placeholder rates
+        output: '0.0000',
+    };
+
+    // Helper constant for degree to radian conversion
+    const DEG_TO_RAD = Math.PI / 180;
+    const FUNCTION_KEYS = ['sin(', 'cos(', 'tan(', '√('];
+
+    // Conversion Factors (Base unit factor is 1)
+    const CONVERSION_UNITS = {
+        length: {
+            base: 'meters',
+            units: {
+                meters: 1,
+                kilometers: 1000,
+                miles: 1609.34,
+                feet: 0.3048,
+                inches: 0.0254,
+                centimeters: 0.01,
+            }
+        },
+        volume: {
+            base: 'liters',
+            units: {
+                liters: 1,
+                milliliters: 0.001,
+                gallons: 3.78541,
+                quarts: 0.946353,
+                cubic_meters: 1000,
+            }
+        },
+        mass: {
+            base: 'kilograms',
+            units: {
+                kilograms: 1,
+                grams: 0.001,
+                pounds: 0.453592,
+                ounces: 0.0283495,
+                tonnes: 1000,
+            }
+        },
+        currency: {
+            // These will be dynamically populated from convState.rates
+            base: 'USD',
+            units: { USD: 1, EUR: 0, GBP: 0, JPY: 0, CAD: 0 } 
+        }
+    };
+
+
+    // --- Core UI Management ---
+
+    /** Renders the buttons for mode selection in the header. */
+    function getModeToggleButtons() {
+        return `
+            <button class="mode-toggle-btn calc-mode ${currentMode === 'CALC' ? 'active-mode' : ''}" 
+                    onclick="setAppMode('CALC')">
+                <i class="fas fa-calculator"></i> Calculator 
+            </button>
+            <button class="mode-toggle-btn conv-mode ${currentMode === 'CONV' ? 'active-mode' : ''}" 
+                    onclick="setAppMode('CONV')">
+                <i class="fas fa-arrows-up-down-left-right"></i> Converter
+            </button>
+        `;
+    }
+
+    /** Sets the main application mode and re-renders the UI. */
+    function setAppMode(mode) {
+        if (mode === currentMode) return; // No change needed
+        
+        currentMode = mode;
+        
+        // If switching to CALC, restore the saved input value
+        if (currentMode === 'CALC') {
+            convState.value = convState.value === "" ? "0" : convState.value;
+        } 
+
+        renderApp();
+
+        // If switching to currency mode, fetch rates
+        if (currentMode === 'CONV' && convState.category === 'currency') {
+            fetchCurrencyRates();
+        }
+    }
+
+
+    /** Renders the current view based on the mode. */
+    function renderApp() {
+        // Render the header first
+        const headerHTML = <div class="mode-header">${getModeToggleButtons()}</div>;
+
+        if (currentMode === 'CALC') {
+            appContainer.innerHTML = ${headerHTML}<div id="display" class="display">${convState.value}</div>;
+            window.display = document.getElementById("display"); 
+            window.display.innerText = convState.value;
+            renderKeypad(calcMode);
+        } else { // CONV mode
+            appContainer.innerHTML = ${headerHTML}${getConversionHTML()};
+            window.convOutput = document.getElementById('convOutput');
+            renderKeypad(null); // Use a generic numeric keypad
+            updateConversionOutput();
+        }
+        
+        // Ensure history visibility is correct based on the mode
+        document.getElementById('historyPanel').style.display = (isHistoryVisible && currentMode === 'CALC') ? 'block' : 'none';
+    }
+
+    /** Switches between NORMAL and ADVANCED calculator modes. */
+    function toggleCalcMode() {
+        calcMode = calcMode === 'NORMAL' ? 'ADVANCED' : 'NORMAL';
+        renderApp();
+    }
+
+
+    // --- Keypad Rendering (Reverted to Full-Width History Button) ---
+
+    /** Renders the keypad based on the current mode/calc mode. */
+    function renderKeypad(mode) {
+      const isDark = document.body.classList.contains('dark');
+      const themeIconClass = isDark ? 'fa-sun' : 'fa-moon';
+      
+      let keypadHTML = '';
+      
+      if (mode === 'NORMAL' || mode === 'ADVANCED') {
+        const toggleIconClass = mode === 'NORMAL' ? 'fa-square-root-alt' : 'fa-calculator';
+        const toggleLabel = mode === 'NORMAL' ? 'ADV' : 'NORM';
+        
+        // Reverting to previous 4-column layout with full-width history button
+        keypadHTML = `
+            <button class="clear-btn" onclick="clearDisplay()">C</button>
+            <button class="utility-btn" onclick="deleteLast()"><i class="fas fa-backspace"></i></button>
+            <button class="op" onclick="appendValue('%')">%</button>
+            <button class="op" onclick="appendValue('/')">÷</button>
+
+            ${mode === 'ADVANCED' ? '<button onclick="appendValue(\'sin(\')">sin</button>' : '<button onclick="appendValue(\'7\')">7</button>'}
+            ${mode === 'ADVANCED' ? '<button onclick="appendValue(\'cos(\')">cos</button>' : '<button onclick="appendValue(\'8\')">8</button>'}
+            ${mode === 'ADVANCED' ? '<button onclick="appendValue(\'tan(\')">tan</button>' : '<button onclick="appendValue(\'9\')">9</button>'}
+            <button class="op" onclick="appendValue('*')">×</button>
+
+            ${mode === 'ADVANCED' ? '<button onclick="appendValue(\'(\')">(</button>' : '<button onclick="appendValue(\'4\')">4</button>'}
+            ${mode === 'ADVANCED' ? '<button onclick="appendValue(\')\')">)</button>' : '<button onclick="appendValue(\'5\')">5</button>'}
+            ${mode === 'ADVANCED' ? '<button onclick="appendValue(\'^\')">^</button>' : '<button onclick="appendValue(\'6\')">6</button>'}
+            <button class="op" onclick="appendValue('-')">-</button>
+
+            ${mode === 'ADVANCED' ? '<button onclick="appendValue(\'√(\')">√</button>' : '<button onclick="appendValue(\'1\')">1</button>'}
+            ${mode === 'ADVANCED' ? '<button onclick="appendValue(\'π\')">π</button>' : '<button onclick="appendValue(\'2\')">2</button>'}
+            ${mode === 'ADVANCED' ? '<button onclick="appendValue(\'e\')">e</button>' : '<button onclick="appendValue(\'3\')">3</button>'}
+            <button class="op" onclick="appendValue('+')">+</button>
+
+            <button onclick="appendValue('0')">0</button>
+            <button onclick="appendValue('.')">.</button>
+            <button class="utility-btn" onclick="toggleCalcMode()">
+                <i class="fas ${toggleIconClass}"></i> ${toggleLabel}
+            </button>
+            <button class="equal" onclick="calculate(this)">=</button>
+            
+            <button class="utility-btn" onclick="toggleTheme()">
+                <i class="fas ${themeIconClass}"></i> Theme
+            </button>
+            <button class="history-btn" onclick="toggleHistory()">
+                <i class="fas fa-history"></i> History
+            </button>
+        `;
+
+      } else { // CONVERSION mode numeric keypad
+        
+        keypadHTML = `
+            <button class="clear-btn" onclick="clearConvInput()">C</button>
+            <button class="utility-btn" onclick="convState.value=convState.value.slice(0, -1); updateInputDisplay(); updateConversionOutput()"><i class="fas fa-backspace"></i></button>
+            <button class="op" onclick="handleConvOperator('/')">÷</button>
+            <button class="op" onclick="handleConvOperator('*')">×</button>
+
+            <button onclick="appendConvValue('7')">7</button>
+            <button onclick="appendConvValue('8')">8</button>
+            <button onclick="appendConvValue('9')">9</button>
+            <button class="op" onclick="handleConvOperator('-')">-</button>
+
+            <button onclick="appendConvValue('4')">4</button>
+            <button onclick="appendConvValue('5')">5</button>
+            <button onclick="appendConvValue('6')">6</button>
+            <button class="op" onclick="handleConvOperator('+')">+</button>
+
+            <button onclick="appendConvValue('1')">1</button>
+            <button onclick="appendConvValue('2')">2</button>
+            <button onclick="appendConvValue('3')">3</button>
+            <button class="equal" onclick="handleConvOperator('=')">=</button>
+
+            <button onclick="appendConvValue('0')">0</button>
+            <button onclick="appendConvValue('.')">.</button>
+            <button class="utility-btn" onclick="swapUnits()">
+                <i class="fas fa-exchange-alt"></i> Swap
+            </button>
+            <button class="utility-btn" onclick="toggleTheme()">
+                <i class="fas ${themeIconClass}"></i> Theme
+            </button>
+        `;
+      }
+      
+      keypad.innerHTML = keypadHTML;
+    }
+
+
+    // --- CALC Mode Logic ---
+
+    /** Deletes the last character from the display. */
+    function deleteLast() {
+        if (window.display.innerText.length > 1) {
+            window.display.innerText = window.display.innerText.slice(0, -1);
+        } else {
+            clearDisplay();
+        }
+        convState.value = window.display.innerText;
+    }
+
+    /** Appends a value to the calculator display. */
+    function appendValue(val) {
+      const currentText = window.display.innerText; 
+      
+      const isFunction = FUNCTION_KEYS.includes(val);
+      const isNumberOrConstant = !isNaN(parseFloat(val)) || val === 'π' || val === 'e';
+      const isDecimal = val === '.';
+      
+      if (currentText === "0" || currentText === "Error") {
+          if (isFunction || isNumberOrConstant) {
+              window.display.innerText = "";
+          } else if (isDecimal) {
+              window.display.innerText = "0"; 
+          }
+      }
+
+      const lastChar = window.display.innerText.slice(-1);
+      const isOperator = "+-*/%^√(".includes(val) || val === '(' || val === ')';
+      const isLastOperator = "+-*/%^√(".includes(lastChar);
+      
+      if (val === lastChar && val === '.') {
+          // Re-introducing simple glow for feedback
+          const target = event.target;
+          if (target) {
+            target.classList.add("glow");
+            setTimeout(() => target.classList.remove("glow"), 300);
+          }
+          return;
+      }
+      
+      if (isOperator && isLastOperator && !isFunction) {
+        if (val !== '(' && val !== ')') {
+            window.display.innerText = window.display.innerText.slice(0, -1) + val;
+        } else {
+            window.display.innerText += val;
+        }
+      } else {
+        window.display.innerText += val;
+      }
+      
+      // Re-introducing simple glow for feedback
+      const target = event.target;
+      if (target) {
+        target.classList.add("glow");
+        setTimeout(() => target.classList.remove("glow"), 300);
+      }
+
+      convState.value = window.display.innerText;
+    }
+
+    /** Clears the calculator display. */
+    function clearDisplay() {
+      window.display.innerText = "0";
+      convState.value = "0";
+    }
+
+    /** Calculates the current expression. */
+    function calculate(btn) {
+      let expression = window.display.innerText;
+      const originalExpression = expression;
+
+      try {
+        const openBracketsCount = (expression.match(/\(/g) || []).length;
+        const closedBracketsCount = (expression.match(/\)/g) || []).length;
+        const bracketsToClose = openBracketsCount - closedBracketsCount;
+        if (bracketsToClose > 0) expression += ")".repeat(bracketsToClose);
+
+        expression = expression.replace(/÷/g, "/").replace(/×/g, "*");
+        
+        expression = expression.replace(/sin\(([^)]+)\)/g, (matc
