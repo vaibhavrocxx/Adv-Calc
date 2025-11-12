@@ -27,6 +27,7 @@
       box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
       width: 100%;
       max-width: 380px;
+      margin: 16px;
       transition: background 0.3s;
     }
     
@@ -74,6 +75,7 @@
       display: flex;
       align-items: center;
       justify-content: flex-end;
+      box-sizing: border-box; /* Ensures padding doesn't break layout */
     }
     .conversion-display.output {
         background: #34495e !important;
@@ -98,6 +100,13 @@
       font-size: 1rem;
       color: #333;
       appearance: none; /* Remove default styling */
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23333%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-13%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2013l128%20128c3.6%203.6%207.8%205.4%2013%205.4s9.4-1.8%2013-5.4l128-128c3.6-3.6%205.4-7.8%205.4-13%200-5-1.8-9.2-5.4-12.8z%22%2F%3E%3C%2Fsvg%3E');
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      background-size: 10px;
+      padding-right: 30px; /* Make space for dropdown arrow */
     }
     
     .unit-selectors {
@@ -118,7 +127,6 @@
       grid-template-columns: repeat(4, 1fr);
       gap: 12px;
     }
-    /* Removed span-2 CSS */
 
     button {
       padding: 18px 10px;
@@ -160,17 +168,34 @@
         color: #fff;
     }
     
-    /* Full-width history button is back */
+    .history-btn-container {
+        grid-column: span 2;
+        display: grid;
+    }
+    
+    .theme-btn-container {
+        grid-column: span 2;
+        display: grid;
+    }
+
     .history-btn {
-      grid-column: span 4; 
       background: #9b59b6; /* Purple for History */
       color: #fff;
       font-size: 1.1rem;
       display: flex;
       justify-content: center;
       align-items: center;
-      margin-top: 12px;
       padding: 12px;
+    }
+    
+    .theme-btn {
+        background: #7f8c8d; /* Same as utility */
+        color: #fff;
+        font-size: 1.1rem;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 12px;
     }
 
     /* History Panel Styling */
@@ -251,7 +276,7 @@
     body.dark button { background: #444; color: #ddd; box-shadow: 0 3px 0 #333; }
     body.dark button:active { box-shadow: 0 2px 0 #333; }
     body.dark .clear-btn { background: #2c3e50; }
-    body.dark .utility-btn { background: #555; }
+    body.dark .utility-btn, body.dark .theme-btn { background: #555; }
     body.dark .op { background: #d35400; }
     body.dark .equal { background: #c0392b; box-shadow: 0 3px 0 #a9322b; }
     body.dark .history-btn { background: #8e44ad; }
@@ -294,7 +319,7 @@
     
     // API key for Google Search grounding tool (leave blank)
     const API_KEY = ""; 
-    const GEMINI_API_URL = https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${API_KEY};
+    const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${API_KEY}`;
     
     // DOM elements
     let appContainer = document.getElementById("appContainer");
@@ -302,12 +327,22 @@
     let historyDiv = document.getElementById("history");
     let historyPanel = document.getElementById("historyPanel");
     
+    // Global display elements (will be assigned in renderApp)
+    let display = null;
+    let convOutput = null;
+    
     // Modes and state
     let currentMode = 'CALC'; // 'CALC' or 'CONV'
     let calcMode = 'NORMAL'; // 'NORMAL' or 'ADVANCED'
     let isHistoryVisible = false; // Tracks if history panel is open
     const THEME_KEY = 'calculatorTheme';
     
+    // Calculation state
+    let calcState = {
+        value: '0',
+        history: []
+    };
+
     // Conversion State
     let convState = {
         category: 'length',
@@ -315,7 +350,7 @@
         to: 'kilometers',
         value: '0',
         rates: { USD: 1, EUR: 0.92, GBP: 0.80, JPY: 156.0, CAD: 1.36 }, // Default placeholder rates
-        output: '0.0000',
+        output: '0.00',
     };
 
     // Helper constant for degree to radian conversion
@@ -385,9 +420,13 @@
         
         currentMode = mode;
         
-        // If switching to CALC, restore the saved input value
+        // Save/restore values when switching modes
         if (currentMode === 'CALC') {
-            convState.value = convState.value === "" ? "0" : convState.value;
+            // Save converter input
+            convState.value = convOutput ? convOutput.innerText : '0';
+        } else {
+            // Save calculator input
+            calcState.value = display ? display.innerText : '0';
         } 
 
         renderApp();
@@ -402,16 +441,19 @@
     /** Renders the current view based on the mode. */
     function renderApp() {
         // Render the header first
-        const headerHTML = <div class="mode-header">${getModeToggleButtons()}</div>;
+        // FIX: Used template literal ``
+        const headerHTML = `<div class="mode-header">${getModeToggleButtons()}</div>`;
 
         if (currentMode === 'CALC') {
-            appContainer.innerHTML = ${headerHTML}<div id="display" class="display">${convState.value}</div>;
-            window.display = document.getElementById("display"); 
-            window.display.innerText = convState.value;
+            // FIX: Used template literal ``
+            appContainer.innerHTML = `${headerHTML}<div id="display" class="display">${calcState.value}</div>`;
+            display = document.getElementById("display"); 
             renderKeypad(calcMode);
         } else { // CONV mode
-            appContainer.innerHTML = ${headerHTML}${getConversionHTML()};
-            window.convOutput = document.getElementById('convOutput');
+            // FIX: Used template literal ``
+            appContainer.innerHTML = `${headerHTML}${getConversionHTML()}`;
+            display = document.getElementById("convInput"); // Re-assign global display
+            convOutput = document.getElementById('convOutput');
             renderKeypad(null); // Use a generic numeric keypad
             updateConversionOutput();
         }
@@ -427,7 +469,7 @@
     }
 
 
-    // --- Keypad Rendering (Reverted to Full-Width History Button) ---
+    // --- Keypad Rendering ---
 
     /** Renders the keypad based on the current mode/calc mode. */
     function renderKeypad(mode) {
@@ -437,10 +479,9 @@
       let keypadHTML = '';
       
       if (mode === 'NORMAL' || mode === 'ADVANCED') {
-        const toggleIconClass = mode === 'NORMAL' ? 'fa-square-root-alt' : 'fa-calculator';
-        const toggleLabel = mode === 'NORMAL' ? 'ADV' : 'NORM';
+        const toggleIconClass = mode === 'NORMAL' ? 'fa-microchip' : 'fa-calculator'; // Changed icon
+        const toggleLabel = mode === 'NORMAL' ? 'Adv' : 'Std'; // Changed label
         
-        // Reverting to previous 4-column layout with full-width history button
         keypadHTML = `
             <button class="clear-btn" onclick="clearDisplay()">C</button>
             <button class="utility-btn" onclick="deleteLast()"><i class="fas fa-backspace"></i></button>
@@ -462,32 +503,36 @@
             ${mode === 'ADVANCED' ? '<button onclick="appendValue(\'e\')">e</button>' : '<button onclick="appendValue(\'3\')">3</button>'}
             <button class="op" onclick="appendValue('+')">+</button>
 
-            <button onclick="appendValue('0')">0</button>
-            <button onclick="appendValue('.')">.</button>
             <button class="utility-btn" onclick="toggleCalcMode()">
                 <i class="fas ${toggleIconClass}"></i> ${toggleLabel}
             </button>
+            <button onclick="appendValue('0')">0</button>
+            <button onclick="appendValue('.')">.</button>
             <button class="equal" onclick="calculate(this)">=</button>
             
-            <button class="utility-btn" onclick="toggleTheme()">
-                <i class="fas ${themeIconClass}"></i> Theme
-            </button>
-            <button class="history-btn" onclick="toggleHistory()">
-                <i class="fas fa-history"></i> History
-            </button>
+            <div class="theme-btn-container">
+                <button class="theme-btn" onclick="toggleTheme()">
+                    <i class="fas ${themeIconClass}"></i> Theme
+                </button>
+            </div>
+            <div class="history-btn-container">
+                <button class="history-btn" onclick="toggleHistory()">
+                    <i class="fas fa-history"></i> History
+                </button>
+            </div>
         `;
 
       } else { // CONVERSION mode numeric keypad
         
         keypadHTML = `
             <button class="clear-btn" onclick="clearConvInput()">C</button>
-            <button class="utility-btn" onclick="convState.value=convState.value.slice(0, -1); updateInputDisplay(); updateConversionOutput()"><i class="fas fa-backspace"></i></button>
+            <button class="utility-btn" onclick="deleteLast()"><i class="fas fa-backspace"></i></button>
             <button class="op" onclick="handleConvOperator('/')">÷</button>
             <button class="op" onclick="handleConvOperator('*')">×</button>
 
             <button onclick="appendConvValue('7')">7</button>
             <button onclick="appendConvValue('8')">8</button>
-            <button onclick="appendConvValue('9')">9</button>
+            <button onclick="appendValue('9')">9</button>
             <button class="op" onclick="handleConvOperator('-')">-</button>
 
             <button onclick="appendConvValue('4')">4</button>
@@ -500,11 +545,11 @@
             <button onclick="appendConvValue('3')">3</button>
             <button class="equal" onclick="handleConvOperator('=')">=</button>
 
-            <button onclick="appendConvValue('0')">0</button>
-            <button onclick="appendConvValue('.')">.</button>
             <button class="utility-btn" onclick="swapUnits()">
                 <i class="fas fa-exchange-alt"></i> Swap
             </button>
+            <button onclick="appendConvValue('0')">0</button>
+            <button onclick="appendConvValue('.')">.</button>
             <button class="utility-btn" onclick="toggleTheme()">
                 <i class="fas ${themeIconClass}"></i> Theme
             </button>
@@ -519,17 +564,25 @@
 
     /** Deletes the last character from the display. */
     function deleteLast() {
-        if (window.display.innerText.length > 1) {
-            window.display.innerText = window.display.innerText.slice(0, -1);
+        if (!display) return;
+        if (display.innerText.length > 1) {
+            display.innerText = display.innerText.slice(0, -1);
         } else {
-            clearDisplay();
+            display.innerText = "0";
         }
-        convState.value = window.display.innerText;
+        
+        if (currentMode === 'CALC') {
+            calcState.value = display.innerText;
+        } else {
+            convState.value = display.innerText;
+            updateConversionOutput();
+        }
     }
 
     /** Appends a value to the calculator display. */
     function appendValue(val) {
-      const currentText = window.display.innerText; 
+      if (!display) return;
+      const currentText = display.innerText; 
       
       const isFunction = FUNCTION_KEYS.includes(val);
       const isNumberOrConstant = !isNaN(parseFloat(val)) || val === 'π' || val === 'e';
@@ -537,63 +590,345 @@
       
       if (currentText === "0" || currentText === "Error") {
           if (isFunction || isNumberOrConstant) {
-              window.display.innerText = "";
+              display.innerText = "";
           } else if (isDecimal) {
-              window.display.innerText = "0"; 
+              display.innerText = "0"; 
+          } else if (currentText === "Error") {
+              display.innerText = "";
           }
       }
 
-      const lastChar = window.display.innerText.slice(-1);
-      const isOperator = "+-*/%^√(".includes(val) || val === '(' || val === ')';
+      const lastChar = display.innerText.slice(-1);
+      const isOperator = "+-*/%^".includes(val);
       const isLastOperator = "+-*/%^√(".includes(lastChar);
       
-      if (val === lastChar && val === '.') {
-          // Re-introducing simple glow for feedback
-          const target = event.target;
-          if (target) {
-            target.classList.add("glow");
-            setTimeout(() => target.classList.remove("glow"), 300);
+      if (val === '.' && currentText.includes('.')) {
+          // Prevent multiple decimals in a single number (simple check)
+          // A more robust check would involve parsing, but this is ok for now.
+          const parts = currentText.split(/[\+\-\*\/\%\^\(\)√]/);
+          if (parts[parts.length - 1].includes('.')) {
+              return; // Already a decimal in the current number
           }
-          return;
       }
       
-      if (isOperator && isLastOperator && !isFunction) {
-        if (val !== '(' && val !== ')') {
-            window.display.innerText = window.display.innerText.slice(0, -1) + val;
-        } else {
-            window.display.innerText += val;
-        }
+      if (isOperator && isLastOperator && !isFunction && val !== '(' && val !== ')') {
+          display.innerText = display.innerText.slice(0, -1) + val;
       } else {
-        window.display.innerText += val;
+        display.innerText += val;
       }
       
-      // Re-introducing simple glow for feedback
-      const target = event.target;
-      if (target) {
+      // Add glow effect
+      if (event && event.target) {
+        const target = event.target;
         target.classList.add("glow");
         setTimeout(() => target.classList.remove("glow"), 300);
       }
 
-      convState.value = window.display.innerText;
+      calcState.value = display.innerText;
     }
 
     /** Clears the calculator display. */
     function clearDisplay() {
-      window.display.innerText = "0";
-      convState.value = "0";
+      if (!display) return;
+      display.innerText = "0";
+      calcState.value = "0";
     }
 
     /** Calculates the current expression. */
     function calculate(btn) {
-      let expression = window.display.innerText;
+      if (!display) return;
+      let expression = display.innerText;
       const originalExpression = expression;
 
       try {
+        // Auto-close open parentheses
         const openBracketsCount = (expression.match(/\(/g) || []).length;
         const closedBracketsCount = (expression.match(/\)/g) || []).length;
         const bracketsToClose = openBracketsCount - closedBracketsCount;
-        if (bracketsToClose > 0) expression += ")".repeat(bracketsToClose);
+        if (bracketsToClose > 0) {
+            expression += ")".repeat(bracketsToClose);
+        }
 
+        // Standardize operators
         expression = expression.replace(/÷/g, "/").replace(/×/g, "*");
+        expression = expression.replace(/π/g, "Math.PI").replace(/e/g, "Math.E");
+        expression = expression.replace(/\^/g, "**");
+
+        // Handle functions (sin, cos, tan, √)
+        // Convert deg to rad for trig functions
+        expression = expression.replace(/sin\(([^)]+)\)/g, (match, p1) => `Math.sin(${p1} * ${DEG_TO_RAD})`);
+        expression = expression.replace(/cos\(([^)]+)\)/g, (match, p1) => `Math.cos(${p1} * ${DEG_TO_RAD})`);
+        expression = expression.replace(/tan\(([^)]+)\)/g, (match, p1) => `Math.tan(${p1} * ${DEG_TO_RAD})`);
+        expression = expression.replace(/√\(([^)]+)\)/g, (match, p1) => `Math.sqrt(${p1})`);
         
-        expression = expression.replace(/sin\(([^)]+)\)/g, (matc
+        // Handle percentages
+        expression = expression.replace(/(\d+(\.\d+)?)%/g, (match, p1) => `(${p1} / 100)`);
+        
+        // Evaluate the expression
+        // Using Function constructor for safer evaluation than eval()
+        let result = new Function('return ' + expression)();
+
+        if (isNaN(result) || !isFinite(result)) {
+            display.innerText = "Error";
+        } else {
+            // Round to a reasonable number of decimals
+            result = Math.round(result * 100000000) / 100000000;
+            display.innerText = result.toString();
+            addToHistory(originalExpression, result);
+        }
+      } catch (e) {
+        console.error("Calculation Error:", e);
+        display.innerText = "Error";
+      }
+      
+      calcState.value = display.innerText;
+    }
+    
+    // --- History Logic ---
+    function addToHistory(expression, result) {
+        const item = { expression, result };
+        calcState.history.unshift(item); // Add to the beginning
+        if (calcState.history.length > 20) {
+            calcState.history.pop(); // Keep history size manageable
+        }
+        saveHistory();
+        renderHistory();
+    }
+    
+    function renderHistory() {
+        historyDiv.innerHTML = calcState.history
+            .map(item => `<div class="history-item">${item.expression} = ${item.result}</div>`)
+            .join('');
+    }
+    
+    function toggleHistory() {
+        if (currentMode !== 'CALC') return;
+        isHistoryVisible = !isHistoryVisible;
+        historyPanel.style.display = isHistoryVisible ? 'block' : 'none';
+        if (isHistoryVisible) {
+            renderHistory();
+        }
+    }
+    
+    function clearHistory() {
+        calcState.history = [];
+        saveHistory();
+        renderHistory();
+    }
+    
+    function loadHistory() {
+        const savedHistory = localStorage.getItem('calcHistory');
+        if (savedHistory) {
+            calcState.history = JSON.parse(savedHistory);
+        }
+        renderHistory();
+    }
+    
+    function saveHistory() {
+        localStorage.setItem('calcHistory', JSON.stringify(calcState.history));
+    }
+    
+    // --- Theme Logic ---
+    function toggleTheme() {
+        const isDark = document.body.classList.toggle('dark');
+        localStorage.setItem(THEME_KEY, isDark ? 'dark' : 'light');
+        // Re-render keypad to update theme icon
+        renderKeypad(currentMode === 'CALC' ? calcMode : null);
+    }
+
+    function loadTheme() {
+        const savedTheme = localStorage.getItem(THEME_KEY);
+        if (savedTheme === 'dark') {
+            document.body.classList.add('dark');
+        }
+        // Re-render keypad to set correct icon on load
+        renderKeypad(currentMode === 'CALC' ? calcMode : null);
+    }
+    
+    // --- CONV Mode Logic ---
+    
+    /** Generates the HTML for the conversion interface. */
+    function getConversionHTML() {
+        const categories = Object.keys(CONVERSION_UNITS);
+        const currentUnits = CONVERSION_UNITS[convState.category].units;
+        const unitKeys = Object.keys(currentUnits);
+        
+        const categoryOptions = categories.map(cat => 
+            `<option value="${cat}" ${convState.category === cat ? 'selected' : ''}>${cat.charAt(0).toUpperCase() + cat.slice(1)}</option>`
+        ).join('');
+        
+        const fromOptions = unitKeys.map(unit => 
+            `<option value="${unit}" ${convState.from === unit ? 'selected' : ''}>${unit}</option>`
+        ).join('');
+        
+        const toOptions = unitKeys.map(unit => 
+            `<option value="${unit}" ${convState.to === unit ? 'selected' : ''}>${unit}</option>`
+        ).join('');
+
+        return `
+            <div id="convInput" class="conversion-display">${convState.value}</div>
+            <div id="convOutput" class="conversion-display output">${convState.output}</div>
+            <div class="conversion-controls">
+                <select id="categorySelect" onchange="handleCategoryChange(this.value)">
+                    ${categoryOptions}
+                </select>
+                <div class="unit-selectors">
+                    <select id="fromUnitSelect" onchange="handleUnitChange('from', this.value)">
+                        ${fromOptions}
+                    </select>
+                    <i class="fas fa-arrow-right"></i>
+                    <select id="toUnitSelect" onchange="handleUnitChange('to', this.value)">
+                        ${toOptions}
+                    </select>
+                </div>
+            </div>
+        `;
+    }
+
+    /** Handles a change in the main conversion category. */
+    function handleCategoryChange(newCategory) {
+        convState.category = newCategory;
+        // Reset units to defaults for that category
+        const unitKeys = Object.keys(CONVERSION_UNITS[newCategory].units);
+        convState.from = unitKeys[0];
+        convState.to = unitKeys[1] || unitKeys[0];
+        
+        if (newCategory === 'currency') {
+            fetchCurrencyRates(); // Will re-render on success
+        } else {
+            renderApp(); // Re-render to update dropdowns
+        }
+    }
+
+    /** Handles a change in 'from' or 'to' units. */
+    function handleUnitChange(direction, newUnit) {
+        convState[direction] = newUnit;
+        updateConversionOutput();
+    }
+    
+    /** Swaps the 'from' and 'to' units. */
+    function swapUnits() {
+        [convState.from, convState.to] = [convState.to, convState.from];
+        renderApp(); // Re-render to show swapped dropdowns
+    }
+    
+    /** Appends a value to the conversion input. */
+    function appendConvValue(val) {
+        if (!display) return;
+        if (display.innerText === "0" || display.innerText === "Error") {
+            display.innerText = "";
+        }
+        
+        if (val === '.' && display.innerText.includes('.')) {
+            return; // Prevent multiple decimals
+        }
+        
+        display.innerText += val;
+        convState.value = display.innerText;
+        updateConversionOutput();
+    }
+    
+    /** Clears the conversion input. */
+    function clearConvInput() {
+        if (!display) return;
+        display.innerText = "0";
+        convState.value = "0";
+        updateConversionOutput();
+    }
+    
+    /** Updates the conversion input display (used by backspace). */
+    function updateInputDisplay() {
+        if (!display) return;
+        display.innerText = convState.value === "" ? "0" : convState.value;
+    }
+    
+    /** Handles simple-calc operators in the converter input. */
+    function handleConvOperator(op) {
+        if (!display) return;
+        let currentVal = parseFloat(display.innerText);
+        if (isNaN(currentVal)) currentVal = 0;
+        
+        try {
+            // A very simple in-place calculation
+            let result = new Function('return ' + display.innerText)();
+            if (op === '=') {
+                display.innerText = result.toString();
+            } else {
+                display.innerText += op;
+            }
+        } catch(e) {
+            // Fails silently, just append operator
+            if (op !== '=') {
+                display.innerText += op;
+            }
+        }
+        convState.value = display.innerText;
+        updateConversionOutput();
+    }
+    
+    /** Performs the unit conversion. */
+    function convert() {
+        let value;
+        try {
+            // Evaluate the input expression first
+            value = new Function('return ' + (convState.value || '0'))();
+        } catch (e) {
+            return "Error";
+        }
+        
+        if (isNaN(value)) return "Error";
+        
+        const categoryData = CONVERSION_UNITS[convState.category];
+        const units = categoryData.units;
+        const baseUnit = categoryData.base;
+        
+        const fromFactor = units[convState.from];
+        const toFactor = units[convState.to];
+        
+        if (fromFactor === undefined || toFactor === undefined) return "Error";
+
+        // 1. Convert 'from' value to the base unit
+        const valueInBase = value * fromFactor;
+        
+        // 2. Convert from base unit to 'to' unit
+        const result = valueInBase / toFactor;
+        
+        return result.toFixed(4); // Format to 4 decimal places
+    }
+    
+    /** Updates the conversion output display. */
+    function updateConversionOutput() {
+        if (!convOutput) return;
+        const result = convert();
+        convState.output = result;
+        convOutput.innerText = result;
+    }
+
+    /** Fetches currency rates (placeholder/mock). */
+    async function fetchCurrencyRates() {
+        // In a real app, you'd fetch from an API.
+        // For now, we'll just use the mock rates.
+        // This is where you would use the Gemini API if you had one.
+        console.log("Fetching currency rates (using mock data)...");
+        
+        // Simulate updating rates (even though they are mock)
+        CONVERSION_UNITS.currency.units = convState.rates;
+        
+        // If we are currently in currency mode, re-render
+        if (currentMode === 'CONV' && convState.category === 'currency') {
+            renderApp();
+        }
+    }
+    
+    // --- App Initialization ---
+    
+    // FIX: Added window.onload to ensure DOM is ready before running scripts
+    window.onload = () => {
+        loadTheme();
+        loadHistory();
+        renderApp();
+    };
+
+  </script>
+</body>
+</html>
